@@ -8,8 +8,6 @@ Author: turboegg1145
 
 import os
 import sys
-import hashlib
-import shutil
 
 # Patch table: (Offset, Original Bytes, Patched Bytes, Description)
 PATCHES = [
@@ -53,40 +51,54 @@ PATCHES = [
     (0x38272, b'\x0F\x85\x15\x01\x00\x00', b'\xE9\x16\x01\x00\x00\x90', "Bypass vertical punctuation coordinate shift"),
 ]
 
-def apply_patch(input_exe="tosui_cn.exe", output_exe="tosui_cn_horizontal.exe"):
-    if not os.path.exists(input_exe):
-        print(f"[错误] 未在当前目录下找到原始可执行文件: {input_exe}")
-        print("请将本脚本放置于《灯穂奇譚》游戏根目录（包含 tosui_cn.exe 的文件夹）运行。")
+def apply_patch(input_path=None):
+    # 1. 如果未传参数，优先检测当前目录；若不存在则支持交互式拖入/输入路径
+    if not input_path:
+        if len(sys.argv) > 1:
+            input_path = sys.argv[1]
+        elif os.path.exists("tosui_cn.exe"):
+            input_path = "tosui_cn.exe"
+        else:
+            print("="*60)
+            print("《灯穂奇譚》横版文字补丁生成器")
+            print("="*60)
+            input_path = input("请输入或直接将 tosui_cn.exe 拖入本窗口并回车: ").strip(' "\'')
+
+    input_path = input_path.strip(' "\'')
+    if not os.path.isfile(input_path):
+        print(f"[错误] 指定的文件不存在: {input_path}")
         return False
 
-    print(f"[*] 正在读取: {input_exe}")
-    with open(input_exe, 'rb') as f:
+    # 确定输出文件路径：默认保存在目标 exe 的同级目录下
+    target_dir = os.path.dirname(os.path.abspath(input_path))
+    output_path = os.path.join(target_dir, "tosui_cn_horizontal.exe")
+
+    print(f"[*] 正在读取源文件: {input_path}")
+    with open(input_path, 'rb') as f:
         data = bytearray(f.read())
 
     print(f"[*] 文件大小: {len(data)} 字节")
     
-    # 验证与应用补丁
+    # 逐项校验并打补丁
     for offset, orig_bytes, patch_bytes, desc in PATCHES:
         actual = bytes(data[offset:offset+len(orig_bytes)])
         if actual != orig_bytes:
-            print(f"[警告/错误] 偏移 0x{offset:X} 处的字节不匹配!")
+            print(f"[错误] 偏移 0x{offset:X} 处的机器码不匹配!")
             print(f"  期望: {orig_bytes.hex()}, 实际: {actual.hex()} ({desc})")
-            print("  请确认您的 tosui_cn.exe 是否为标准的汉化版 v1.0。")
+            print("  请确认您提供的是否为未修改的标准《灯穂奇譚》汉化版 tosui_cn.exe。")
             return False
         
         data[offset:offset+len(patch_bytes)] = patch_bytes
-        print(f"  [+] 成功应用补丁 0x{offset:X}: {desc}")
+        print(f"  [+] 应用修改 0x{offset:X}: {desc}")
 
-    with open(output_exe, 'wb') as f:
+    with open(output_path, 'wb') as f:
         f.write(data)
 
     print("\n" + "="*60)
-    print(f"[完成] 横版主程序生成成功: {output_exe}")
+    print(f"[成功] 横版补丁主程序已生成: {output_path}")
     print("="*60)
-    print("使用说明: 直接双击运行生成的 tosui_cn_horizontal.exe 即可体验横版阅读！")
+    print("使用说明: 直接双击运行生成的 tosui_cn_horizontal.exe 即可游玩横版！")
     return True
 
 if __name__ == '__main__':
-    in_file = sys.argv[1] if len(sys.argv) > 1 else "tosui_cn.exe"
-    out_file = sys.argv[2] if len(sys.argv) > 2 else "tosui_cn_horizontal.exe"
-    apply_patch(in_file, out_file)
+    apply_patch()
